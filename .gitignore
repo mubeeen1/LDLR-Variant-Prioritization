@@ -1,0 +1,21 @@
+# Raw ClinVar Data (Exceeds GitHub size limits)
+clinvar.vcf.gz
+clinvar.vcf.gz.tbi
+
+# Intermediate Pipeline Outputs (Generated automatically by the script)
+*_vus_only.vcf
+*_targets.txt
+*_annotated_vus.csv
+*_structure.cif
+
+# Keep the final curated results
+!top_*_candidates.csv
+!*_final_report.txt
+
+# Python Caches
+__pycache__/
+*.py[cod]
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
