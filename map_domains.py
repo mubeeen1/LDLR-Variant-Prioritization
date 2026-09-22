@@ -1,77 +1,67 @@
-import requests
 import pandas as pd
+import requests
+import json
 import argparse
-import sys
+import time
 
-# 1. COMMAND LINE ARGUMENTS (No more hardcoding)
-parser = argparse.ArgumentParser(description='Map genomic variants to protein domains.')
-parser.add_argument('--input', required=True, help='Input CSV file (e.g., top_ldlr_candidates.csv)')
-parser.add_argument('--chrom', required=True, help='Chromosome number to filter (e.g., 19)')
+parser = argparse.ArgumentParser()
+parser.add_argument('--input', required=True, help='Top candidates CSV')
+parser.add_argument('--uniprot', required=True, help='UniProt ID for domain boundaries')
 args = parser.parse_args()
 
-print(f"Loading {args.input} and isolating Chromosome {args.chrom}...")
-try:
-    df = pd.read_csv(args.input)
-except FileNotFoundError:
-    print(f"Error: Could not find {args.input}")
-    sys.exit(1)
+df = pd.read_csv(args.input)
 
-# Filter for the target chromosome and take the top 5 candidates
-df['Chromosome'] = df['Chromosome'].astype(str)
-true_targets = df[df['Chromosome'] == str(args.chrom)].head(5)
+# 1. Fetch gold-standard domain boundaries directly from UniProt
+uniprot_url = f"https://rest.uniprot.org/uniprotkb/{args.uniprot}.json"
+response = requests.get(uniprot_url)
+domains = []
 
+if response.ok:
+    features = response.json().get('features', [])
+    for f in features:
+        if f.get('type') in ['Domain', 'Repeat', 'Region', 'Topological domain']:
+            start = f.get('location', {}).get('start', {}).get('value')
+            end = f.get('location', {}).get('end', {}).get('value')
+            desc = f.get('description', f.get('type'))
+            if start and end:
+                domains.append({'start': int(start), 'end': int(end), 'desc': desc})
+else:
+    print("Failed to reach UniProt API.")
+    exit(1)
+
+# 2. Query Ensembl ONLY to translate Genomic POS to Protein POS
 server = "https://rest.ensembl.org"
+ext = "/vep/human/region"
 headers = {"Content-Type": "application/json", "Accept": "application/json"}
-results = []
 
-print("Querying Ensembl API for Canonical Transcripts, HGVS nomenclature, and Domains...\n")
+print(f"{'Genomic_Pos':<15} {'Protein_Change':<18} {'Biological_Domain'}")
+print("-" * 75)
 
-for index, row in true_targets.iterrows():
-    ref, alt = row['Mutation'].split('>')
+# Take the top 5 candidates for the report
+top_5 = df.head(5)
+queries = [f"{row['Chromosome']}:{row['Position']}-{row['Position']}:1/{row['Mutation'].split('>')[1]}" for _, row in top_5.iterrows()]
+payload = {"variants": queries}
+
+try:
+    res = requests.post(server+ext, headers=headers, data=json.dumps(payload), timeout=15)
+    decoded = res.json()
     
-    # Added hgvs=1 to pull exact nomenclature
-    ext = f"/vep/human/region/{row['Chromosome']}:{row['Position']}-{row['Position']}:1/{alt}?Domains=1&hgvs=1"
-    
-    try:
-        response = requests.get(server+ext, headers=headers)
-        if not response.ok:
-            continue
-            
-        decoded = response.json()
-        consequences = decoded[0].get('transcript_consequences', [])
+    for var_data in decoded:
+        input_str = var_data.get('input', '')
+        genomic_pos = input_str.split(':')[1].split('-')[0]
         
-        # 2. ISOLATE THE CANONICAL PROTEIN TRANSCRIPT
-        best_transcript = {}
-        for t in consequences:
-            if 'hgvsp' in t and t.get('biotype') == 'protein_coding':
-                best_transcript = t
-                if t.get('canonical') == 1:
-                    break # Perfect match found
+        transcript = var_data.get('transcript_consequences', [{}])[0]
+        protein_start = transcript.get('protein_start')
+        hgvsp = transcript.get('hgvsp', 'Unknown').split(':')[-1]
         
-        hgvsp = best_transcript.get('hgvsp', 'Unknown').split(':')[-1] 
-        amino_acids = best_transcript.get('amino_acids', 'Unknown')
-        
-        # 3. EXTRACT STRUCTURAL DOMAINS
-        domains = []
-        if 'domains' in best_transcript:
-            for d in best_transcript['domains']:
-                # Filter for recognized biological structural databases
-                if d.get('db') in ['InterPro', 'Pfam', 'PROSITE']:
-                    domains.append(f"{d.get('db')}:{d.get('name')}")
-        
-        # Remove duplicates and format cleanly
-        domain_str = " | ".join(list(dict.fromkeys(domains))[:2]) if domains else "No defined domain"
-        
-        results.append({
-            'Genomic_Pos': row['Position'],
-            'Protein_Change': hgvsp,
-            'Amino_Acids': amino_acids,
-            'Domain_Location': domain_str
-        })
-        
-    except Exception as e:
-        print(f"Error on {row['Position']}: {e}")
-
-final_df = pd.DataFrame(results)
-print("--- FINAL BIOLOGICAL INTERPRETATION TABLE ---")
-print(final_df.to_string(index=False))
+        domain_name = "Intergenic / No Domain"
+        if protein_start:
+            p_loc = int(protein_start)
+            # Check which UniProt boundary this amino acid falls inside
+            matches = [d['desc'] for d in domains if d['start'] <= p_loc <= d['end']]
+            if matches:
+                domain_name = " | ".join(matches)
+                
+        print(f"{genomic_pos:<15} {hgvsp:<18} {domain_name}")
+except Exception as e:
+    print(f"Error mapping variants: {e}")
