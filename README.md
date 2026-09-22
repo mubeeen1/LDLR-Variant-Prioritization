@@ -54,7 +54,7 @@ Ensure your environment (WSL Ubuntu or Linux) satisfies the following requiremen
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<YOUR_USERNAME>/LDLR-Variant-Prioritization.git
+git clone https://github.com/mubeeen1/LDLR-Variant-Prioritization.git
 cd LDLR-Variant-Prioritization
 ```
 
