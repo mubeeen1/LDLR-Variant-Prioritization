@@ -1,0 +1,10 @@
+Loading top_LDLR_candidates.csv and isolating Chromosome 19...
+Querying Ensembl API for Canonical Transcripts, HGVS nomenclature, and Domains...
+
+--- FINAL BIOLOGICAL INTERPRETATION TABLE ---
+ Genomic_Pos Protein_Change Amino_Acids   Domain_Location
+    11100324     p.Asp57His         D/H No defined domain
+    11100293     p.Cys46Trp         C/W No defined domain
+    11100343     p.Cys63Phe         C/F No defined domain
+    11100343     p.Cys63Tyr         C/Y No defined domain
+    11107458    p.Val295Gly         V/G No defined domain
