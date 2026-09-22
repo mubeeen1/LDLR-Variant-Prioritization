@@ -52,7 +52,18 @@ try:
         
         transcript = var_data.get('transcript_consequences', [{}])[0]
         protein_start = transcript.get('protein_start')
-        hgvsp = transcript.get('hgvsp', 'Unknown').split(':')[-1]
+        
+        # Smart HGVS extraction/fallback
+        hgvsp = transcript.get('hgvsp', '')
+        if hgvsp:
+            prot_change = hgvsp.split(':')[-1]
+        else:
+            aa = transcript.get('amino_acids', '')
+            if aa and protein_start and '/' in aa:
+                ref_aa, alt_aa = aa.split('/')
+                prot_change = f"p.{ref_aa}{protein_start}{alt_aa}"
+            else:
+                prot_change = "Unknown"
         
         domain_name = "Intergenic / No Domain"
         if protein_start:
@@ -62,6 +73,6 @@ try:
             if matches:
                 domain_name = " | ".join(matches)
                 
-        print(f"{genomic_pos:<15} {hgvsp:<18} {domain_name}")
+        print(f"{genomic_pos:<15} {prot_change:<18} {domain_name}")
 except Exception as e:
     print(f"Error mapping variants: {e}")

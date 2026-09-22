@@ -1,0 +1,7 @@
+Genomic_Pos     Protein_Change     Biological_Domain
+---------------------------------------------------------------------------
+11100293        p.C132W            Extracellular | LDL-receptor class A 3
+11100324        p.D143H            Extracellular | LDL-receptor class A 3
+11105288        p.C214S            Extracellular | LDL-receptor class A 5 | Binding to Getah virus E1-E2 spike glycoproteins
+11102696        p.C161G            Extracellular | LDL-receptor class A 4 | Binding to Getah virus E1-E2 spike glycoproteins
+11100343        p.C149Y            Extracellular | LDL-receptor class A 4 | Binding to Getah virus E1-E2 spike glycoproteins
